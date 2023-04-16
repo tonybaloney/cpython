@@ -325,6 +325,17 @@ gc_list_size(PyGC_Head *list)
     return n;
 }
 
+static Py_ssize_t
+gc_list_size_in_memory(PyGC_Head *list)
+{
+    PyGC_Head *gc;
+    Py_ssize_t n = 0;
+    for (gc = GC_NEXT(list); gc != list; gc = GC_NEXT(gc)) {
+        n += FROM_GC(gc)->ob_type->tp_basicsize;
+    }
+    return n;
+}
+
 /* Walk the list and mark all objects as non-collecting */
 static inline void
 gc_list_clear_collecting(PyGC_Head *collectable)
@@ -1058,10 +1069,20 @@ show_stats_each_generations(GCState *gcstate)
                              gc_list_size(GEN_HEAD(gcstate, i)));
     }
 
+    char buf2[1000];
+    size_t pos2 = 0;
+
+    for (int i = 0; i < NUM_GENERATIONS && pos2 < sizeof(buf2); i++) {
+        pos2 += PyOS_snprintf(buf2+pos2, sizeof(buf)-pos2,
+                             " %zdkB",
+                            gc_list_size_in_memory(GEN_HEAD(gcstate, i)) / 1024);
+    }
+
     PySys_FormatStderr(
         "gc: objects in each generation:%s\n"
+        "gc: size of objects in each generation:%s\n"
         "gc: objects in permanent generation: %zd\n",
-        buf, gc_list_size(&gcstate->permanent_generation.head));
+        buf, buf2, gc_list_size(&gcstate->permanent_generation.head));
 }
 
 /* Deduce which objects among "base" are unreachable from outside the list
@@ -1199,8 +1220,8 @@ gc_collect_main(PyThreadState *tstate, int generation,
     assert(!_PyErr_Occurred(tstate));
 
     if (gcstate->debug & DEBUG_STATS) {
-        PySys_WriteStderr("gc: collecting generation %d...\n", generation);
         show_stats_each_generations(gcstate);
+        PySys_WriteStderr("gc: collecting generation %d...\n", generation);
         t1 = _PyTime_GetPerfCounter();
     }
 
@@ -1210,8 +1231,9 @@ gc_collect_main(PyThreadState *tstate, int generation,
     /* update collection and allocation counters */
     if (generation+1 < NUM_GENERATIONS)
         gcstate->generations[generation+1].count += 1;
-    for (i = 0; i <= generation; i++)
+    for (i = 0; i <= generation; i++) {
         gcstate->generations[i].count = 0;
+    }
 
     /* merge younger generations with one we are currently collecting */
     for (i = 0; i < generation; i++) {
@@ -2266,7 +2288,7 @@ _Py_ScheduleGC(PyInterpreterState *interp)
 }
 
 void
-_PyObject_GC_Link(PyObject *op)
+_PyObject_GC_Link(PyObject *op, size_t size)
 {
     PyGC_Head *g = AS_GC(op);
     assert(((uintptr_t)g & (sizeof(uintptr_t)-1)) == 0);  // g must be correctly aligned
@@ -2275,8 +2297,9 @@ _PyObject_GC_Link(PyObject *op)
     GCState *gcstate = &tstate->interp->gc;
     g->_gc_next = 0;
     g->_gc_prev = 0;
-    gcstate->generations[0].count++; /* number of allocated GC objects */
-    if (gcstate->generations[0].count > gcstate->generations[0].threshold &&
+    gcstate->generations[0].count += size;
+
+    if (gcstate->generations[0].count > (gcstate->generations[0].threshold * 1024) &&
         gcstate->enabled &&
         gcstate->generations[0].threshold &&
         !gcstate->collecting &&
@@ -2310,7 +2333,7 @@ gc_alloc(size_t basicsize, size_t presize)
     ((PyObject **)mem)[0] = NULL;
     ((PyObject **)mem)[1] = NULL;
     PyObject *op = (PyObject *)(mem + presize);
-    _PyObject_GC_Link(op);
+    _PyObject_GC_Link(op, size);
     return op;
 }
 
