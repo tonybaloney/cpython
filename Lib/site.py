@@ -746,13 +746,19 @@ def _script():
         sys.exit(10)
 
 # Localizations
-sys.localized_exceptions = {}; sys.localized_exceptions['id'] = {}
+sys.localized_exceptions = {}; sys.localized_exceptions['id'] = {}; sys.localized_exceptions['pl'] = {}
 
-sys.localized_exceptions['id']["'%.100s' object has no attribute '%U'"] = "Objek '%.100s' tidak memiliki atribut '%U'"
+sys.localized_exceptions['id']["'%.100s' object has no attribute '%U'"] = "objek '%.100s' tidak memiliki atribut '%U'"
 sys.localized_exceptions['id']['division by zero'] = "pembagian dengan nol"
 sys.localized_exceptions['id']["unsupported operand type(s) for %.100s: '%.100s' and '%.100s'"] = "tipe operan tidak didukung untuk %.100s: '%.100s' dan '%.100s'"
 sys.localized_exceptions['id']["unmatched '%c'"] = "'%c' tanpa pasangan"
 sys.localized_exceptions['id']["invalid syntax"] = "sintaks tidak valid"
+
+sys.localized_exceptions['pl']["'%.100s' object has no attribute '%U'"] = "obiekt '%.100s' nie ma atrybutu '%U'"
+sys.localized_exceptions['pl']['division by zero'] = "dzielenie przez zero"
+sys.localized_exceptions['pl']["unsupported operand type(s) for %.100s: '%.100s' and '%.100s'"] = "niewspierany(-ne) typ(y) operandu(-dów) dla %.100s: '%.100s' i '%.100s'"
+sys.localized_exceptions['pl']["unmatched '%c'"] = "brak dopasowania '%c'"
+sys.localized_exceptions['pl']["invalid syntax"] = "nieprawidłowa składnia"
 
 
 if __name__ == '__main__':
